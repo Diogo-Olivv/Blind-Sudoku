@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/main"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:background="#EEEEEE">
+
+        <Chronometer
+            android:id="@+id/chronometerTimer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btnRestart"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:text="Restart Game"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:id="@+id/tvQuadrante"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Quadrante Atual: 0"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="24dp" />
+
+        <GridLayout
+            android:id="@+id/sudokuGrid"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="32dp"
+            android:background="#000000"
+            android:padding="2dp" />
+
+        <Button
+            android:id="@+id/btnPrev"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:text="Quadrante Anterior"
+            android:layout_marginBottom="16dp"/>
+
+        <Button
+            android:id="@+id/btnNext"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:text="Próximo Quadrante"
+            android:layout_marginBottom="16dp"/>
+
+        <Button
+            android:id="@+id/btnVerify"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:text="Verificar Vitória" />
+
+        <Button
+            android:id="@+id/btnShowBoard"
+            android:layout_width="200dp"
+            android:layout_height="wrap_content"
+            android:text="Ver Mapa Completo"
+            android:layout_marginBottom="16dp"/>
+
+    </LinearLayout>
+
+
+</androidx.constraintlayout.widget.ConstraintLayout>
