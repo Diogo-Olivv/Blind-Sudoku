@@ -21,6 +21,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 class MainActivity : AppCompatActivity() {
 
     private var squareSize = 2
+    private var difficultyPercentage = 0.4 // Default Medium
     private lateinit var sudoku: SudokuGame
 
     private var currentQuadrantIndex = 0
@@ -35,9 +36,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Receber o tamanho do quadrado do Intent
+        // Receber o tamanho e dificuldade do Intent
         squareSize = intent.getIntExtra("SQUARE_SIZE", 2)
+        difficultyPercentage = intent.getDoubleExtra("DIFFICULTY", 0.4)
+        
         sudoku = SudokuGame(squareSize)
+        sudoku.generateLevel(difficultyPercentage)
 
         // UI Components
         val boardGrid = findViewById<GridLayout>(R.id.sudokuGrid)
@@ -73,7 +77,6 @@ class MainActivity : AppCompatActivity() {
                     height = cellSizePx
                     setMargins(marginPx, marginPx, marginPx, marginPx)
                 }
-                setBackgroundColor(Color.WHITE)
                 gravity = Gravity.CENTER
                 inputType = InputType.TYPE_CLASS_NUMBER
                 textSize = if (squareSize == 3) 20f else 24f
@@ -189,6 +192,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun restartGame() {
         sudoku = SudokuGame(squareSize)
+        sudoku.generateLevel(difficultyPercentage)
         currentQuadrantIndex = 0
         startTimer()
         renderQuadrant()
@@ -204,7 +208,20 @@ class MainActivity : AppCompatActivity() {
         isUpdatingUI = true
         for (i in cellInputs.indices) {
             val value = quadrantData[i]
+            val isFixed = sudoku.isFixed(currentQuadrantIndex, i)
+            
             cellInputs[i].setText(if (value == 0) "" else value.toString())
+            
+            // Estilizar células fixas
+            if (isFixed) {
+                cellInputs[i].isEnabled = false
+                cellInputs[i].setBackgroundColor(Color.LTGRAY)
+                cellInputs[i].setTextColor(Color.DKGRAY)
+            } else {
+                cellInputs[i].isEnabled = true
+                cellInputs[i].setBackgroundColor(Color.WHITE)
+                cellInputs[i].setTextColor(Color.BLACK)
+            }
         }
         isUpdatingUI = false
     }
@@ -244,13 +261,14 @@ class MainActivity : AppCompatActivity() {
                 val quadrantIndex = (globalRow / squareSize) * squareSize + (globalCol / squareSize)
                 val innerIndex = (globalRow % squareSize) * squareSize + (globalCol % squareSize)
                 val value = sudoku.getQuadrant(quadrantIndex)[innerIndex]
+                val isFixed = sudoku.isFixed(quadrantIndex, innerIndex)
 
                 val cellView = TextView(this).apply {
                     text = if (value == 0) "" else value.toString()
                     textSize = if (boardSize > 4) 12f else 16f
-                    setTextColor(Color.BLACK)
+                    setTextColor(if (isFixed) Color.DKGRAY else Color.BLACK)
                     gravity = Gravity.CENTER
-                    setBackgroundColor(Color.WHITE)
+                    setBackgroundColor(if (isFixed) Color.LTGRAY else Color.WHITE)
 
                     layoutParams = GridLayout.LayoutParams().apply {
                         width = cellSide
