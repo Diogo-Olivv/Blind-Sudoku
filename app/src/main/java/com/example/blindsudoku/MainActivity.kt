@@ -6,52 +6,63 @@ import android.os.SystemClock
 import android.text.InputFilter
 import android.text.InputType
 import android.view.Gravity
+import android.view.View
 import android.widget.Button
 import android.widget.Chronometer
 import android.widget.EditText
+import android.widget.FrameLayout
 import android.widget.GridLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.addTextChangedListener
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class MainActivity : AppCompatActivity() {
 
-    private val squareSize = 2
-    private var sudoku = SudokuGame(squareSize)
+    private var squareSize = 2
+    private lateinit var sudoku: SudokuGame
 
     private var currentQuadrantIndex = 0
     private var isUpdatingUI = false
 
     private lateinit var cellInputs: Array<EditText>
-    private lateinit var quadrantTextView: TextView
     private lateinit var timer: Chronometer
+    private lateinit var quadrantIndicatorGrid: GridLayout
+    private lateinit var indicatorCells: Array<View>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Receber o tamanho do quadrado do Intent
+        squareSize = intent.getIntExtra("SQUARE_SIZE", 2)
+        sudoku = SudokuGame(squareSize)
+
         // UI Components
         val boardGrid = findViewById<GridLayout>(R.id.sudokuGrid)
-        //val boardFullGrid = findViewById<GridLayout>(R.id.sudokuFullGrid)
         val btnShowBoard = findViewById<Button>(R.id.btnShowBoard)
         val btnNext = findViewById<Button>(R.id.btnNext)
         val btnPrev = findViewById<Button>(R.id.btnPrev)
-        val btnVerify = findViewById<Button>(R.id.btnVerify)
         val btnRestart = findViewById<Button>(R.id.btnRestart)
-
-        quadrantTextView = findViewById(R.id.tvQuadrante)
+        
+        quadrantIndicatorGrid = findViewById(R.id.quadrantIndicatorGrid)
         timer = findViewById(R.id.chronometerTimer)
 
         boardGrid.rowCount = squareSize
         boardGrid.columnCount = squareSize
 
+        setupQuadrantIndicator()
 
         // --------- BUILDING THE QUADRANT ---------
 
-        // Convert dp to px for dynamic sizing
         val density = resources.displayMetrics.density
-        val cellSizePx = (80 * density).toInt()
+        val cellSizeDp = when(squareSize) {
+            1 -> 120
+            2 -> 80
+            else -> 60
+        }
+        val cellSizePx = (cellSizeDp * density).toInt()
         val marginPx = (2 * density).toInt()
 
         // Map and instantiate dynamic EditText cells
@@ -65,27 +76,27 @@ class MainActivity : AppCompatActivity() {
                 setBackgroundColor(Color.WHITE)
                 gravity = Gravity.CENTER
                 inputType = InputType.TYPE_CLASS_NUMBER
-                textSize = 24f
+                textSize = if (squareSize == 3) 20f else 24f
 
                 addTextChangedListener { text ->
                     if (isUpdatingUI) return@addTextChangedListener
 
                     val typedValue = text.toString().toIntOrNull() ?: 0
                     sudoku.setPlay(currentQuadrantIndex, cellIndex, typedValue)
+                    
+                    checkAutoVictory()
                 }
             }
         }
 
-        // Filter to prevent digits below 1 and above totalSize
         val sudokuInputFilter = InputFilter { source, _, _, _, _, _ ->
             if (source.isEmpty()) return@InputFilter null
             val num = source.toString().toIntOrNull()
             if (num in 1..sudoku.totalSize) null else ""
         }
 
-        // Attach cells to the grid and apply filters
         cellInputs.forEach { cell ->
-            cell.filters = arrayOf(sudokuInputFilter, InputFilter.LengthFilter(1))
+            cell.filters = arrayOf(sudokuInputFilter, InputFilter.LengthFilter(if (sudoku.totalSize >= 10) 2 else 1))
             boardGrid.addView(cell)
         }
 
@@ -104,20 +115,60 @@ class MainActivity : AppCompatActivity() {
         btnShowBoard.setOnClickListener {
             showFullBoardVisual()
         }
-        btnVerify.setOnClickListener {
-            if (sudoku.checkVictory()) {
-                timer.stop()
-                val tempoDecorrido = timer.text
-                Toast.makeText(this, "Victory in $tempoDecorrido! You solved it!", Toast.LENGTH_LONG).show()
-            } else {
-                Toast.makeText(this, "Not quite! Keep trying or fix the errors.", Toast.LENGTH_SHORT).show()
-            }
-        }
         btnRestart.setOnClickListener {
-            restartGame()
+            showRestartConfirmationDialog()
         }
 
         renderQuadrant()
+    }
+
+    private fun checkAutoVictory() {
+        val currentData = sudoku.getQuadrant(currentQuadrantIndex)
+        if (currentData.all { it != 0 }) {
+            if (sudoku.checkVictory()) {
+                timer.stop()
+                val tempoDecorrido = timer.text
+                MaterialAlertDialogBuilder(this)
+                    .setTitle("Parabéns!")
+                    .setMessage("Você venceu o Blind Sudoku em $tempoDecorrido!")
+                    .setPositiveButton("Novo Jogo") { _, _ -> restartGame() }
+                    .setNegativeButton("Fechar", null)
+                    .show()
+            }
+        }
+    }
+
+    private fun setupQuadrantIndicator() {
+        val density = resources.displayMetrics.density
+        val indicatorSizePx = (15 * density).toInt()
+        val marginPx = (2 * density).toInt()
+
+        quadrantIndicatorGrid.rowCount = squareSize
+        quadrantIndicatorGrid.columnCount = squareSize
+        quadrantIndicatorGrid.removeAllViews()
+
+        indicatorCells = Array(sudoku.totalSize) { i ->
+            View(this).apply {
+                layoutParams = GridLayout.LayoutParams().apply {
+                    width = indicatorSizePx
+                    height = indicatorSizePx
+                    setMargins(marginPx, marginPx, marginPx, marginPx)
+                }
+                setBackgroundColor(Color.WHITE)
+            }
+        }
+
+        indicatorCells.forEach { quadrantIndicatorGrid.addView(it) }
+    }
+
+    private fun updateIndicatorUI() {
+        indicatorCells.forEachIndexed { index, view ->
+            if (index == currentQuadrantIndex) {
+                view.setBackgroundColor(Color.GRAY) // Destaque para o quadrante atual
+            } else {
+                view.setBackgroundColor(Color.WHITE)
+            }
+        }
     }
 
     private fun startTimer() {
@@ -125,43 +176,67 @@ class MainActivity : AppCompatActivity() {
         timer.start()
     }
 
+    private fun showRestartConfirmationDialog() {
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Confirmar Reinício")
+            .setMessage("Quer mesmo reiniciar o mapa?")
+            .setPositiveButton("Sim") { _, _ ->
+                restartGame()
+            }
+            .setNegativeButton("Não", null)
+            .show()
+    }
+
     private fun restartGame() {
-        sudoku = SudokuGame(squareSize) // Reset Board
+        sudoku = SudokuGame(squareSize)
         currentQuadrantIndex = 0
         startTimer()
         renderQuadrant()
-        Toast.makeText(this, "Game Restarted!", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Jogo Reiniciado!", Toast.LENGTH_SHORT).show()
     }
 
     // --------- BOARD RENDERING ---------
 
     private fun renderQuadrant() {
-        quadrantTextView.text = "Current Quadrant: ${currentQuadrantIndex + 1}"
+        updateIndicatorUI()
         val quadrantData = sudoku.getQuadrant(currentQuadrantIndex)
 
         isUpdatingUI = true
-
         for (i in cellInputs.indices) {
             val value = quadrantData[i]
             cellInputs[i].setText(if (value == 0) "" else value.toString())
         }
-
         isUpdatingUI = false
     }
 
     private fun showFullBoardVisual() {
         val boardSize = sudoku.totalSize
-
         val density = resources.displayMetrics.density
-        val smallCellPx = (30 * density).toInt()
-        val normalMarginPx = (1 * density).toInt()
-        val quadrantMarginPx = (3 * density).toInt()
+        
+        val cellSideDp = when(boardSize) {
+            1 -> 80
+            4 -> 50
+            9 -> 35
+            else -> 30
+        }
+        val cellSide = (cellSideDp * density).toInt()
+        val thinLine = (1 * density).toInt()
+        val thickLine = (3 * density).toInt()
+
+        val container = FrameLayout(this).apply {
+            setPadding((16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt(), (16 * density).toInt())
+        }
 
         val popupGrid = GridLayout(this).apply {
             rowCount = boardSize
             columnCount = boardSize
-            setBackgroundColor(Color.BLACK)
-            setPadding(normalMarginPx, normalMarginPx, normalMarginPx, normalMarginPx)
+            setBackgroundColor(Color.DKGRAY)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER
+            }
         }
 
         for (globalRow in 0 until boardSize) {
@@ -172,29 +247,29 @@ class MainActivity : AppCompatActivity() {
 
                 val cellView = TextView(this).apply {
                     text = if (value == 0) "" else value.toString()
-                    textSize = 14f
+                    textSize = if (boardSize > 4) 12f else 16f
+                    setTextColor(Color.BLACK)
                     gravity = Gravity.CENTER
                     setBackgroundColor(Color.WHITE)
-                    setTextColor(Color.BLACK)
 
                     layoutParams = GridLayout.LayoutParams().apply {
-                        width = smallCellPx
-                        height = smallCellPx
-
-                        val bottomMargin = if (globalRow % squareSize == squareSize - 1 && globalRow != boardSize - 1) quadrantMarginPx else normalMarginPx
-                        val rightMargin = if (globalCol % squareSize == squareSize - 1 && globalCol != boardSize - 1) quadrantMarginPx else normalMarginPx
-
-                        setMargins(normalMarginPx, normalMarginPx, rightMargin, bottomMargin)
+                        width = cellSide
+                        height = cellSide
+                        val right = if ((globalCol + 1) % squareSize == 0 && globalCol != boardSize - 1) thickLine else thinLine
+                        val bottom = if ((globalRow + 1) % squareSize == 0 && globalRow != boardSize - 1) thickLine else thinLine
+                        setMargins(0, 0, right, bottom)
                     }
                 }
                 popupGrid.addView(cellView)
             }
         }
 
-        android.app.AlertDialog.Builder(this)
-            .setTitle("Full Sudoku Map")
-            .setView(popupGrid)
-            .setPositiveButton("Close", null)
+        container.addView(popupGrid)
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Mapa Completo")
+            .setView(container)
+            .setPositiveButton("Fechar", null)
             .show()
     }
 }
